@@ -1,6 +1,6 @@
 # Todos:
 
-- [ ] Download MNIST dataset (write bash scripts if needed)
+- [x] Download MNIST dataset.
 - [ ] Read and understand a sample code ([example](https://github.com/AshwinRJ/Federated-Learning-PyTorch/tree/master/data))
 - [ ] Generate results
 - [ ] Dockerize
