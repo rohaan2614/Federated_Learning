@@ -49,28 +49,6 @@ def sample_noniid(npz_path: str,
     return dict_users
 
 
-def test_sample_noniid():
-    partitions = sample_noniid(npz_path='data/mnist_train.npz',
-                            num_clients=7,
-                            num_shards = 200, 
-                            num_imgs = 300, 
-                            shards_per_client = 2)
-
-    # Convert NumPy arrays to lists for JSON serialization
-    for key in partitions:
-        partitions[key] = partitions[key].tolist()
-        
-    # Define the path where you want to save the JSON file
-    json_output_path = 'client_data.json'
-
-    # Convert the dictionary to JSON format and write it to a file
-    with open(file = json_output_path, 
-            mode='w', 
-            encoding='utf-8') as json_file:
-        json.dump(partitions, json_file)
-
-    print(f"Output stored in {json_output_path}")
-
 def numpy_to_tensor(npz_path: str) -> TensorDataset:
     """
     Convert numpy arrays from .npz file to PyTorch TensorDataset.
@@ -92,28 +70,6 @@ def numpy_to_tensor(npz_path: str) -> TensorDataset:
     
     logging.info("Conversion to PyTorch TensorDataset completed.")
     return dataset
-
-# Test the numpy_to_tensor function
-import matplotlib.pyplot as plt
-def test_numpy_to_tensor(npz_path):
-    print(f"Testing numpy_to_tensor function with file: {npz_path}")
-    
-    # Call numpy_to_tensor to obtain TensorDataset
-    dataset = numpy_to_tensor(npz_path)
-    
-    # Display first few images with labels using matplotlib
-    fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(10, 3))
-    for i, ax in enumerate(axes):
-        image, label = dataset[i]
-        ax.imshow(image.squeeze(), cmap='gray')
-        ax.set_title(f"Label: {label}")
-        ax.axis('off')
-    
-    plt.tight_layout()
-    plt.show()
-
-test_numpy_to_tensor('data/mnist_train.npz')
-test_numpy_to_tensor('data/mnist_test.npz')
 
 def get_datasets(npz_train: str, 
                  npz_test: str,
