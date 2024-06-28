@@ -100,4 +100,8 @@ def get_datasets(npz_train: str,
     training_dataset = numpy_to_tensor(npz_train)
     testing_dataset = numpy_to_tensor(npz_test)
     
+    # Log the dimensions of the training and testing datasets
+    logging.info(f"Training dataset dimensions: {[t.shape for t in training_dataset.tensors]}")
+    logging.info(f"Testing dataset dimensions: {[t.shape for t in testing_dataset.tensors]}")
+    
     return training_dataset, testing_dataset, dict_users
