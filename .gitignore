@@ -156,3 +156,11 @@ cython_debug/
 
 # Project specific
 *.json
+python/vanilla-fl/data/MNIST/raw/t10k-images-idx3-ubyte
+python/vanilla-fl/data/MNIST/raw/t10k-images-idx3-ubyte.gz
+python/vanilla-fl/data/MNIST/raw/t10k-labels-idx1-ubyte
+python/vanilla-fl/data/MNIST/raw/t10k-labels-idx1-ubyte.gz
+python/vanilla-fl/data/MNIST/raw/train-images-idx3-ubyte
+python/vanilla-fl/data/MNIST/raw/train-images-idx3-ubyte.gz
+python/vanilla-fl/data/MNIST/raw/train-labels-idx1-ubyte
+python/vanilla-fl/data/MNIST/raw/train-labels-idx1-ubyte.gz
