@@ -156,5 +156,5 @@ cython_debug/
 
 # Project specific
 *.json
-python/vanilla-fl/data/MNIST/raw/*
+python/vanilla-fl/data/*/raw/*
 python/vanilla-fl/save/*
