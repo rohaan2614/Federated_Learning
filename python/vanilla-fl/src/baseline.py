@@ -14,13 +14,6 @@ from datetime import datetime
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 def main():
-    # # Constants
-    # RANDOM_SEED = 42
-    # NUM_CLIENTS = 3
-    # NUM_SHARDS = 200
-    # NUM_IMGS = 300
-    # SHARDS_PER_CLIENT = 2
-    # Load datasets from .npz files
     logging.info("Loading datasets...")
     # Define the transformation
     transform = transforms.Compose([transforms.ToTensor()])
@@ -35,14 +28,6 @@ def main():
                          download = True, 
                          transform = transform)
     logging.info("Datasets loaded successfully.")
-    
-    # dict_users = utils.sample_noniid(num_clients = NUM_CLIENTS,
-    #                                  num_imgs = NUM_IMGS,
-    #                                  num_shards = NUM_SHARDS,
-    #                                  shards_per_client = SHARDS_PER_CLIENT,
-    #                                  dataset = train_dataset)
-    # logging.info("dict_users generated successfully.")
-    
     
     # Check if CUDA is available, if not use CPU
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
