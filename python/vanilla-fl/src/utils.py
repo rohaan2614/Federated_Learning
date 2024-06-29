@@ -93,43 +93,6 @@ def sample_noniid(num_clients: int,
     logging.info("Non-I.I.D data sampling completed.")
     return dict_users
 
-def get_datasets(training_dataset: str,
-                 npz_test: str,
-                 num_clients: int,
-                 num_shards: int = 200,
-                 num_imgs: int = 300,
-                 shards_per_client: int = 2) -> tuple:
-    """
-    Returns train and test datasets and a dictionary of user data.
-
-    :param npz_train: Path to the .npz file containing the training dataset.
-    :param npz_test: Path to the .npz file containing the testing dataset.
-    :param num_clients: Number of clients/users to sample data for.
-    :param num_shards: Number of shards (groups) to divide the dataset into.
-    :param num_imgs: Number of images per shard.
-    :param shards_per_client: Number of shards assigned to each client.
-
-    :return: Tuple containing training dataset, testing dataset, and dictionary of user data.
-    """
-    logging.info("Sampling non-I.I.D. data for clients.")
-    dict_users = sample_noniid(npz_path=npz_train,
-                               num_clients=num_clients,
-                               num_shards=num_shards,
-                               num_imgs=num_imgs,
-                               shards_per_client=shards_per_client)
-
-    logging.info("Converting training and testing datasets to TensorDataset.")
-    training_dataset = numpy_to_tensor(npz_train)
-    testing_dataset = numpy_to_tensor(npz_test)
-
-    # Log the dimensions of the training and testing datasets
-    logging.info(
-        f"Training dataset dimensions: {[t.shape for t in training_dataset.tensors]}")
-    logging.info(
-        f"Testing dataset dimensions: {[t.shape for t in testing_dataset.tensors]}")
-
-    return training_dataset, testing_dataset, dict_users
-
 # Testing my method
 def main():
     # Define the transformation
