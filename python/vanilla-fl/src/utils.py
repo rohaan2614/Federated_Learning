@@ -39,7 +39,7 @@ def save_dict_to_json(dictionary, json_path):
         logging.error(f"Failed to save dictionary to {json_path}: {e}")
 
 
-def sample_noniid_new(num_clients: int,
+def sample_noniid(num_clients: int,
                       num_shards: int,
                       num_imgs: int,
                       shards_per_client: int,
@@ -91,92 +91,7 @@ def sample_noniid_new(num_clients: int,
     logging.info("Non-I.I.D data sampling completed.")
     return dict_users
 
-
-# testing new method
-num_clients = 15
-num_shards = 200
-num_imgs = 60000 // num_shards  # 60000 images in the MNIST training set
-shards_per_client = 2
-
-dict_users = sample_noniid_new(
-    num_clients=num_clients,
-    num_shards=num_shards,
-    num_imgs=num_imgs,
-    shards_per_client=shards_per_client,
-    download=False)
-
-save_dict_to_json(dictionary=dict_users,
-                  json_path="client_data.json")
-
-
-def sample_noniid(npz_path: str,
-                  num_clients: int,
-                  num_shards: int,
-                  num_imgs: int,
-                  shards_per_client: int) -> dict:
-    """
-    Sample non-I.I.D client data from MNIST dataset stored in .npz file.
-
-    :param npz_path: Path to the .npz file containing the MNIST dataset.
-    :param num_clients: Number of clients/users to sample data for.
-    :param num_shards: Number of shards (groups) to divide the dataset into.
-    :param num_imgs: Number of images per shard.
-    :param shards_per_client: Number of shards assigned to each client.
-
-    :return: Dictionary mapping client IDs to their data indices.
-    """
-
-    logging.info(f"Loading data from {npz_path}")
-    data = np.load(npz_path)
-    labels = data['labels']
-
-    # Initialize variables
-    idx_shard = [i for i in range(num_shards)]
-    dict_users = {i: np.array([]) for i in range(num_clients)}
-    idxs = np.arange(num_shards * num_imgs)
-
-    # Align indices with their corresponding labels
-    idxs_labels = np.vstack((idxs, labels))
-    idxs_labels = idxs_labels[:, idxs_labels[1, :].argsort()]
-    idxs = idxs_labels[0, :]
-
-    # Assign shards to each client
-    for i in range(num_clients):
-        rand_set = set(np.random.choice(
-            idx_shard, shards_per_client, replace=False))
-        idx_shard = list(set(idx_shard) - rand_set)
-        for rand in rand_set:
-            dict_users[i] = np.concatenate(
-                (dict_users[i], idxs[rand * num_imgs:(rand + 1) * num_imgs]), axis=0)
-
-    logging.info("Non-I.I.D data sampling completed.")
-    return dict_users
-
-
-def numpy_to_tensor(npz_path: str) -> TensorDataset:
-    """
-    Convert numpy arrays from .npz file to PyTorch TensorDataset.
-
-    :param npz_path: Path to the .npz file containing images and labels.
-    :return: TensorDataset containing images and labels as PyTorch tensors.
-    """
-    logging.info(f"Loading data from {npz_path}")
-    data = np.load(npz_path)
-    images_np = data['images']
-    labels_np = data['labels']
-
-    # Convert to PyTorch tensors
-    images_tensor = torch.tensor(images_np, dtype=torch.float32)
-    labels_tensor = torch.tensor(labels_np, dtype=torch.long)
-
-    # Create TensorDataset
-    dataset = TensorDataset(images_tensor, labels_tensor)
-
-    logging.info("Conversion to PyTorch TensorDataset completed.")
-    return dataset
-
-
-def get_datasets(npz_train: str,
+def get_datasets(training_dataset: str,
                  npz_test: str,
                  num_clients: int,
                  num_shards: int = 200,
