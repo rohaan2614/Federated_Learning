@@ -1,6 +1,7 @@
 # Todos:
 
 - [x] Download MNIST dataset.
+- [ ] Implement baseline i.e conventional non-federated learning.
 - [ ] Read and understand a sample code ([example](https://github.com/AshwinRJ/Federated-Learning-PyTorch/tree/master/data))
 - [ ] Generate results
 - [ ] Dockerize
