@@ -1,11 +1,7 @@
 import numpy as np
 import logging
 import json
-import torch
-from torch.utils.data import DataLoader, Dataset
-import torchvision.transforms as transforms
-from torchvision.datasets import MNIST
-import matplotlib.pyplot as plt
+from torch.utils.data import Dataset
 
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
@@ -92,31 +88,3 @@ def sample_noniid(num_clients: int,
 
     logging.info("Non-I.I.D data sampling completed.")
     return dict_users
-
-# Testing my method
-def main():
-    # Define the transformation
-    transform = transforms.Compose([transforms.ToTensor()])
-
-    # Load MNIST dataset
-    mnist_dataset = MNIST(root='./data', train=True, download=False, transform=transform)
-
-    # Parameters
-    num_clients = 5
-    num_shards = 200
-    num_imgs = 300
-    shards_per_client = 2
-
-    # Sample non-IID data
-    dict_users = sample_noniid(
-        num_clients=num_clients,
-        num_shards=num_shards,
-        num_imgs=num_imgs,
-        shards_per_client=shards_per_client,
-        dataset=mnist_dataset
-    )
-
-    save_dict_to_json(dictionary= dict_users,
-                      json_path = 'client_data.json')
-if __name__ == "__main__":    
-    main()
