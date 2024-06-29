@@ -1,6 +1,8 @@
 import numpy as np
 import logging
 import json
+import torch
+from torch import nn
 from torch.utils.data import Dataset
 
 logging.basicConfig(level=logging.INFO,
@@ -34,7 +36,6 @@ def save_dict_to_json(dictionary, json_path):
         logging.info(f"Dictionary successfully saved to {json_path}.")
     except IOError as e:
         logging.error(f"Failed to save dictionary to {json_path}: {e}")
-
 
 def sample_noniid(num_clients: int,
                   num_shards: int,
@@ -88,3 +89,35 @@ def sample_noniid(num_clients: int,
 
     logging.info("Non-I.I.D data sampling completed.")
     return dict_users
+
+def evaluate_model(model, data_loader, device):
+    """
+    Evaluate a PyTorch model on a given dataset.
+
+    :param model: The trained PyTorch model to evaluate.
+    :param data_loader: DataLoader object for the dataset to evaluate on.
+    :param device: Device to run the evaluation on ('cpu' or 'cuda').
+    :return: Tuple of (accuracy, average_loss) for the dataset.
+    """
+    model.eval()  # Set the model to evaluation mode
+    correct = 0
+    total_loss = 0.0
+    criterion = nn.CrossEntropyLoss()
+
+    with torch.no_grad():
+        for images, labels in data_loader:
+            images, labels = images.to(device), labels.to(device)
+            outputs = model(images)
+            loss = criterion(outputs, labels)
+            total_loss += loss.item()
+
+            _, predicted = torch.max(outputs, 1)
+            correct += (predicted == labels).sum().item()
+
+    accuracy = correct / len(data_loader.dataset)
+    average_loss = total_loss / len(data_loader)
+
+    logging.info(f'Test Accuracy: {100 * accuracy:.2f}%')
+    logging.info(f'Average Test Loss: {average_loss:.6f}')
+
+    return accuracy, average_loss
