@@ -110,9 +110,12 @@ def main():
     plt.savefig(file_name)
     logging.info("Training loss plot saved.")
 
-    # test_acc, test_loss = utils.test_inference(global_model, test_loader, device)
-    # logging.info(f'Test on {len(test_dataset)} samples')
-    # logging.info(f"Test Accuracy: {100*test_acc:.2f}%")
+    test_accuracy, test_loss = utils.evaluate_model(model = global_model, 
+                                                    data_loader = test_loader, 
+                                                    device = device)
+    logging.info(f'Test on {len(test_dataset)} samples')
+    logging.info(f"Test Accuracy: {100*test_accuracy:.2f}%")
+    logging.info(f"Test Loss: {test_loss:.6f}%")
 
 if __name__ == '__main__':
     main()
