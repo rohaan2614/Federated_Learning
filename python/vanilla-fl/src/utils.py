@@ -2,9 +2,10 @@ import numpy as np
 import logging
 import json
 import torch
-from torch.utils.data import DataLoader, TensorDataset
+from torch.utils.data import DataLoader, Dataset
 import torchvision.transforms as transforms
 from torchvision.datasets import MNIST
+import matplotlib.pyplot as plt
 
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
@@ -40,11 +41,10 @@ def save_dict_to_json(dictionary, json_path):
 
 
 def sample_noniid(num_clients: int,
-                      num_shards: int,
-                      num_imgs: int,
-                      shards_per_client: int,
-                      train: bool = True,
-                      download: bool = True) -> dict:
+                  num_shards: int,
+                  num_imgs: int,
+                  shards_per_client: int,
+                  dataset: Dataset) -> dict:
     """
     Sample non-I.I.D client data from the MNIST dataset using PyTorch's torchvision.datasets.
 
@@ -52,37 +52,39 @@ def sample_noniid(num_clients: int,
     :param num_shards: Number of shards (groups) to divide the dataset into.
     :param num_imgs: Number of images per shard.
     :param shards_per_client: Number of shards assigned to each client.
-    :param train: Boolean indicating if training or testing dataset should be used.
-    :param download: Boolean indicating if the dataset should be downloaded if not present.
+    :param dataset: Dataset object from which to sample non-I.I.D data.
 
     :return: Dictionary mapping client IDs to their data indices.
     """
-    # Load MNIST data
-    log_message = "Loading data from torchvision.datasets.MNIST with settings "
-    log_message += f"train={train}, download={download}"
-    logging.info(log_message)
+    logging.info("Loading data from dataset object.")
 
-    transform = transforms.Compose([
-        # convert PIL to tensors
-        transforms.ToTensor()])
-    mnist_dataset = MNIST(root='./data', train=train,
-                          download=download, transform=transform)
     # Initialize variables
     idx_shard = [i for i in range(num_shards)]
-    dict_users = {i: np.array([]) for i in range(num_clients)}
-    idxs = np.arange(num_shards * num_imgs)
+    dict_users = {i: np.array([], dtype=np.int64) for i in range(num_clients)}
+    total_imgs = num_shards * num_imgs
 
-    labels = mnist_dataset.targets.numpy()
+    # Ensure that the dataset has enough data
+    if total_imgs > len(dataset):
+        raise ValueError(f"Dataset does not have enough samples. Required: {total_imgs}, Available: {len(dataset)}")
+
+    idxs = np.arange(total_imgs)
+
+    # Extract labels from the dataset
+    if hasattr(dataset, 'targets'):
+        labels = dataset.targets.numpy()  # For torchvision.datasets.MNIST
+    elif hasattr(dataset, 'labels'):
+        labels = dataset.labels.numpy()  # Some other datasets might use 'labels'
+    else:
+        raise ValueError("The dataset does not have a recognized attribute for labels")
 
     # Align indices with their corresponding labels
-    idxs_labels = np.vstack((idxs, labels))
+    idxs_labels = np.vstack((idxs, labels[:total_imgs]))
     idxs_labels = idxs_labels[:, idxs_labels[1, :].argsort()]
     idxs = idxs_labels[0, :]
 
     # Assign shards to each client
     for i in range(num_clients):
-        rand_set = set(np.random.choice(
-            idx_shard, shards_per_client, replace=False))
+        rand_set = set(np.random.choice(idx_shard, shards_per_client, replace=False))
         idx_shard = list(set(idx_shard) - rand_set)
         for rand in rand_set:
             dict_users[i] = np.concatenate(
@@ -127,3 +129,31 @@ def get_datasets(training_dataset: str,
         f"Testing dataset dimensions: {[t.shape for t in testing_dataset.tensors]}")
 
     return training_dataset, testing_dataset, dict_users
+
+# Testing my method
+def main():
+    # Define the transformation
+    transform = transforms.Compose([transforms.ToTensor()])
+
+    # Load MNIST dataset
+    mnist_dataset = MNIST(root='./data', train=True, download=False, transform=transform)
+
+    # Parameters
+    num_clients = 5
+    num_shards = 200
+    num_imgs = 300
+    shards_per_client = 2
+
+    # Sample non-IID data
+    dict_users = sample_noniid(
+        num_clients=num_clients,
+        num_shards=num_shards,
+        num_imgs=num_imgs,
+        shards_per_client=shards_per_client,
+        dataset=mnist_dataset
+    )
+
+    save_dict_to_json(dictionary= dict_users,
+                      json_path = 'client_data.json')
+if __name__ == "__main__":    
+    main()
