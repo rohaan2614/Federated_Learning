@@ -123,9 +123,7 @@ def main(RANDOM_SEED: int = 42,
             local_losses.append(avg_local_loss)
 
             logging.info(f"Client {client_id + 1} - Average Loss: {avg_local_loss:.6f}")
-        
-        
-
+    
         # Aggregate the local weights to update the global model
         global_weights = utils.aggregate_weights(local_weights)
         global_model.load_state_dict(global_weights)
@@ -134,6 +132,7 @@ def main(RANDOM_SEED: int = 42,
         avg_loss = sum(local_losses) / len(local_losses)
         round_avg_losses.append(avg_loss)
         logging.info(f"Round {round_num + 1} - Average Loss: {avg_loss:.6f}")
+        print("")
 
     logging.info("Federated training completed.")
     
@@ -141,9 +140,6 @@ def main(RANDOM_SEED: int = 42,
     end_time = time.time()
     total_time = end_time - start_time
     logging.info(f"Total execution time: {total_time:.2f} seconds")
-    
-    for i, loss in enumerate(round_avg_losses):
-        print(f'\t-> Round: {i+1}, loss: {loss}')
 
     # Plot the training loss
     plt.figure()
@@ -155,13 +151,13 @@ def main(RANDOM_SEED: int = 42,
     plt.savefig('./save/nn_mnist/CNNMnist/federated_{}.png'.format(datetime.now().strftime('%Y-%m-%d_%H-%M-%S')))
     logging.info("Training loss plot saved.")
 
-    # # Evaluate the global model
-    # logging.info("Evaluating the global model on the test dataset...")
-    # test_loader = DataLoader(test_dataset, batch_size=64, shuffle=False)
-    # test_accuracy, test_loss = evaluate_model(global_model, test_loader, device)
-    # logging.info(f"Test on {len(test_dataset)} samples")
-    # logging.info(f"Test Accuracy: {100 * test_accuracy:.2f}%")
-    # logging.info(f"Test Loss: {test_loss:.6f}")
+    # Evaluate the global model
+    logging.info("Evaluating the global model on the test dataset...")
+    test_loader = DataLoader(test_dataset, batch_size=64, shuffle=False)
+    test_accuracy, test_loss = utils.evaluate_model(global_model, test_loader, device)
+    logging.info(f"Test on {len(test_dataset)} samples")
+    logging.info(f"Test Accuracy: {100 * test_accuracy:.2f}%")
+    logging.info(f"Test Loss: {test_loss:.6f}")
 
 if __name__ == '__main__':
     main(NUM_CLIENTS=10,
