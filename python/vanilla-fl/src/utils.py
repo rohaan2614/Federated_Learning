@@ -36,12 +36,13 @@ def save_dict_to_json(dictionary, json_path):
         logging.info(f"Dictionary successfully saved to {json_path}.")
     except IOError as e:
         logging.error(f"Failed to save dictionary to {json_path}: {e}")
-
+        
 def sample_noniid(num_clients: int,
                   num_shards: int,
                   num_imgs: int,
                   shards_per_client: int,
-                  dataset: Dataset) -> dict:
+                  dataset: Dataset,
+                  random_seed: int) -> dict:
     """
     Sample non-I.I.D client data from the MNIST dataset using PyTorch's torchvision.datasets.
 
@@ -59,6 +60,9 @@ def sample_noniid(num_clients: int,
     idx_shard = [i for i in range(num_shards)]
     dict_users = {i: np.array([], dtype=np.int64) for i in range(num_clients)}
     total_imgs = num_shards * num_imgs
+    
+    # random seed
+    rng = np.random.default_rng(seed=random_seed)
 
     # Ensure that the dataset has enough data
     if total_imgs > len(dataset):
@@ -78,10 +82,13 @@ def sample_noniid(num_clients: int,
     idxs_labels = np.vstack((idxs, labels[:total_imgs]))
     idxs_labels = idxs_labels[:, idxs_labels[1, :].argsort()]
     idxs = idxs_labels[0, :]
+    
+    # Shuffle indices
+    np.random.shuffle(idxs)
 
     # Assign shards to each client
     for i in range(num_clients):
-        rand_set = set(np.random.choice(idx_shard, shards_per_client, replace=False))
+        rand_set = set(rng.choice(idx_shard, shards_per_client, replace=False))
         idx_shard = list(set(idx_shard) - rand_set)
         for rand in rand_set:
             dict_users[i] = np.concatenate(
@@ -122,16 +129,23 @@ def evaluate_model(model, data_loader, device):
 
     return accuracy, average_loss
 
-def aggregate_weights(local_weights):
+def aggregate_weights(existing_global_weights : dict, 
+                      local_weights : dict) -> dict:
     """
-    Aggregate local model weights into global weights by averaging.
+    Aggregate local model weights into global weights by averaging, 
+    starting with the existing global weights.
 
+    :param existing_global_weights: State dictionary of the existing global model weights.
     :param local_weights: List of state dictionaries from each client.
-    :return: Aggregated state dictionary.
+    :return: Updated global state dictionary.
     """
-    global_weights = local_weights[0].copy()
-    for key in global_weights.keys():
-        for local_weight in local_weights[1:]:
-            global_weights[key] += local_weight[key]
-        global_weights[key] = torch.div(global_weights[key], len(local_weights))
-    return global_weights
+    # Initialize global weights as a copy of the existing global weights
+    updated_global_weights = {key: existing_global_weights[key].clone() for key in existing_global_weights.keys()}
+
+    # Aggregate local weights into global weights
+    for key in updated_global_weights.keys():
+        for local_weight in local_weights:
+            updated_global_weights[key] += local_weight[key]
+        updated_global_weights[key] = torch.div(updated_global_weights[key], len(local_weights))
+
+    return updated_global_weights

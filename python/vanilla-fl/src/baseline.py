@@ -90,7 +90,7 @@ def main():
     plt.ylabel('Train Loss')
     plt.title('Training Loss over Epochs')
     plt.grid(True)
-    file_name = f'./save/nn_mnist/CNNMnist/'
+    file_name = f'./save/nn_mnist/CNNMnist/baseline_'
     file_name += f'{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}_{epochs}-epochs.png'
     plt.savefig(file_name)
     logging.info("Training loss plot saved.")

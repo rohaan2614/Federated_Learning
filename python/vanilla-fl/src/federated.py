@@ -18,8 +18,9 @@ def main(RANDOM_SEED: int = 42,
          NUM_IMGS: int = 300,
          SHARDS_PER_CLIENT: int = 2,
          NUM_ROUNDS: int = 10,
-         EPOCHS_PER_CLIENT: int = 1,
-         CLIENT_FRACTION: float = 0.5):
+         EPOCHS_PER_CLIENT: int = 10,
+         CLIENT_FRACTION: float = 0.5,
+         LEARNING_RATE : float = 0.01):
     
     # to calculate execution time
     start_time = time.time()
@@ -56,7 +57,8 @@ def main(RANDOM_SEED: int = 42,
                                      num_imgs=NUM_IMGS, 
                                      num_shards=NUM_SHARDS, 
                                      shards_per_client=SHARDS_PER_CLIENT, 
-                                     dataset=train_dataset)
+                                     dataset=train_dataset,
+                                     random_seed = RANDOM_SEED)
     logging.info("dict_users generated successfully.")
     
     # Check if CUDA is available, if not use CPU
@@ -69,7 +71,6 @@ def main(RANDOM_SEED: int = 42,
 
     # Copy global weights
     global_weights = global_model.state_dict()
-
     # Training loop for federated learning
     logging.info("Starting federated training...")
     
@@ -89,8 +90,8 @@ def main(RANDOM_SEED: int = 42,
         logging.info(f"Sampled clients: {sampled_clients}")
 
         for client_id in sampled_clients:
-            # Initialize the local model
             local_model = CNNMnist().to(device)
+            
             #  Broadcasting Global Model
             local_model.load_state_dict(global_weights)
 
@@ -101,7 +102,7 @@ def main(RANDOM_SEED: int = 42,
 
             # Train the local model
             optimizer = torch.optim.Adam(local_model.parameters(), 
-                                         lr=0.01, 
+                                         lr=LEARNING_RATE, 
                                          weight_decay=1e-4)
             criterion = nn.CrossEntropyLoss()
             local_model.train()
@@ -125,9 +126,10 @@ def main(RANDOM_SEED: int = 42,
             logging.info(f"Client {client_id + 1} - Average Loss: {avg_local_loss:.6f}")
     
         # Aggregate the local weights to update the global model
-        global_weights = utils.aggregate_weights(local_weights)
+        global_weights = utils.aggregate_weights(existing_global_weights=global_weights,
+                                                 local_weights=local_weights)
         global_model.load_state_dict(global_weights)
-
+        
         # Calculate average loss for the round
         avg_loss = sum(local_losses) / len(local_losses)
         round_avg_losses.append(avg_loss)
@@ -160,5 +162,5 @@ def main(RANDOM_SEED: int = 42,
     logging.info(f"Test Loss: {test_loss:.6f}")
 
 if __name__ == '__main__':
-    main(NUM_CLIENTS=10,
-         CLIENT_FRACTION=0.6)
+    main(NUM_CLIENTS=100,
+         CLIENT_FRACTION=0.1)
