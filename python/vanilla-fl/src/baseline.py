@@ -100,7 +100,7 @@ def main():
                                                     device = device)
     logging.info(f'Test on {len(test_dataset)} samples')
     logging.info(f"Test Accuracy: {100*test_accuracy:.2f}%")
-    logging.info(f"Test Loss: {test_loss:.6f}%")
+    logging.info(f"Test Loss: {test_loss:.6f}")
 
 if __name__ == '__main__':
     main()
