@@ -8,6 +8,7 @@ from torchvision.datasets import MNIST
 import torchvision.transforms as transforms
 from datetime import datetime
 import time
+import random
 from models import CNNMnist
 import utils
 
@@ -17,7 +18,8 @@ def main(RANDOM_SEED: int = 42,
          NUM_IMGS: int = 300,
          SHARDS_PER_CLIENT: int = 2,
          NUM_ROUNDS: int = 10,
-         EPOCHS_PER_CLIENT: int = 1):
+         EPOCHS_PER_CLIENT: int = 1,
+         CLIENT_FRACTION: float = 0.5):
     
     # to calculate execution time
     start_time = time.time()
@@ -31,6 +33,7 @@ def main(RANDOM_SEED: int = 42,
     logging.info(f"SHARDS_PER_CLIENT: {SHARDS_PER_CLIENT}")
     logging.info(f"NUM_ROUNDS: {NUM_ROUNDS}")
     logging.info(f"EPOCHS_PER_CLIENT: {EPOCHS_PER_CLIENT}")
+    logging.info(f"CLIENT_FRACTION: {CLIENT_FRACTION}")
 
     # Set seed for reproducibility
     torch.manual_seed(RANDOM_SEED)
@@ -69,15 +72,23 @@ def main(RANDOM_SEED: int = 42,
 
     # Training loop for federated learning
     logging.info("Starting federated training...")
+    
+    # local losses per round
+    round_avg_losses = []
+    
     for round_num in range(NUM_ROUNDS):
         logging.info(f"--- Round {round_num + 1}/{NUM_ROUNDS} ---")
 
         local_weights = []
         local_losses = []
 
-        for client_id in range(NUM_CLIENTS):
-            logging.info(f"Client {client_id + 1}/{NUM_CLIENTS}")
+        # Determine the number of clients to sample
+        num_clients_sample = max(1, int(NUM_CLIENTS * CLIENT_FRACTION))
+        sampled_clients = random.sample(range(NUM_CLIENTS), num_clients_sample)
+        sampled_clients.sort()
+        logging.info(f"Sampled clients: {sampled_clients}")
 
+        for client_id in sampled_clients:
             # Initialize the local model
             local_model = CNNMnist().to(device)
             #  Broadcasting Global Model
@@ -112,6 +123,8 @@ def main(RANDOM_SEED: int = 42,
             local_losses.append(avg_local_loss)
 
             logging.info(f"Client {client_id + 1} - Average Loss: {avg_local_loss:.6f}")
+        
+        
 
         # Aggregate the local weights to update the global model
         global_weights = utils.aggregate_weights(local_weights)
@@ -119,13 +132,22 @@ def main(RANDOM_SEED: int = 42,
 
         # Calculate average loss for the round
         avg_loss = sum(local_losses) / len(local_losses)
+        round_avg_losses.append(avg_loss)
         logging.info(f"Round {round_num + 1} - Average Loss: {avg_loss:.6f}")
 
     logging.info("Federated training completed.")
+    
+    # Calculate total execution time
+    end_time = time.time()
+    total_time = end_time - start_time
+    logging.info(f"Total execution time: {total_time:.2f} seconds")
+    
+    for i, loss in enumerate(round_avg_losses):
+        print(f'\t-> Round: {i+1}, loss: {loss}')
 
     # Plot the training loss
     plt.figure()
-    plt.plot(range(NUM_ROUNDS), [sum(local_losses) / len(local_losses) for _ in range(NUM_ROUNDS)], marker='o')
+    plt.plot(range(NUM_ROUNDS), round_avg_losses, marker='o')
     plt.xlabel('Rounds')
     plt.ylabel('Average Loss')
     plt.title('Training Loss over Rounds')
@@ -145,4 +167,5 @@ def main(RANDOM_SEED: int = 42,
     # logging.info(f"Total execution time: {time.time() - start_time:.2f} seconds")
 
 if __name__ == '__main__':
-    main(NUM_CLIENTS=10)
+    main(NUM_CLIENTS=10,
+         CLIENT_FRACTION=0.6)
