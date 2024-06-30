@@ -1,0 +1,148 @@
+import logging
+from tqdm import tqdm
+import matplotlib.pyplot as plt
+import torch
+from torch import nn
+from torch.utils.data import DataLoader, Subset
+from torchvision.datasets import MNIST
+import torchvision.transforms as transforms
+from datetime import datetime
+import time
+from models import CNNMnist
+import utils
+
+def main(RANDOM_SEED: int = 42,
+         NUM_CLIENTS: int = 3,
+         NUM_SHARDS: int = 200,
+         NUM_IMGS: int = 300,
+         SHARDS_PER_CLIENT: int = 2,
+         NUM_ROUNDS: int = 10,
+         EPOCHS_PER_CLIENT: int = 1):
+    
+    # to calculate execution time
+    start_time = time.time()
+
+    # Log input parameters
+    logging.info(f"Starting federated learning with the following parameters:")
+    logging.info(f"RANDOM_SEED: {RANDOM_SEED}")
+    logging.info(f"NUM_CLIENTS: {NUM_CLIENTS}")
+    logging.info(f"NUM_SHARDS: {NUM_SHARDS}")
+    logging.info(f"NUM_IMGS: {NUM_IMGS}")
+    logging.info(f"SHARDS_PER_CLIENT: {SHARDS_PER_CLIENT}")
+    logging.info(f"NUM_ROUNDS: {NUM_ROUNDS}")
+    logging.info(f"EPOCHS_PER_CLIENT: {EPOCHS_PER_CLIENT}")
+
+    # Set seed for reproducibility
+    torch.manual_seed(RANDOM_SEED)
+
+    # Load datasets
+    logging.info("Loading datasets...")
+    transform = transforms.Compose([transforms.ToTensor()])
+    train_dataset = MNIST(root='./data', 
+                          train=True, 
+                          download=True, 
+                          transform=transform)
+    test_dataset = MNIST(root='./data', 
+                         train=False, 
+                         download=True, 
+                         transform=transform)
+    logging.info("Datasets loaded successfully.")
+    
+    # Split the training dataset into client datasets
+    dict_users = utils.sample_noniid(num_clients=NUM_CLIENTS, 
+                                     num_imgs=NUM_IMGS, 
+                                     num_shards=NUM_SHARDS, 
+                                     shards_per_client=SHARDS_PER_CLIENT, 
+                                     dataset=train_dataset)
+    logging.info("dict_users generated successfully.")
+    
+    # Check if CUDA is available, if not use CPU
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    logging.info(f'Using device: {device}')
+
+    # Initialize the global model
+    global_model = CNNMnist().to(device)
+    logging.info("Global model initialized.")
+
+    # Copy global weights
+    global_weights = global_model.state_dict()
+
+    # Training loop for federated learning
+    logging.info("Starting federated training...")
+    for round_num in range(NUM_ROUNDS):
+        logging.info(f"--- Round {round_num + 1}/{NUM_ROUNDS} ---")
+
+        local_weights = []
+        local_losses = []
+
+        for client_id in range(NUM_CLIENTS):
+            logging.info(f"Client {client_id + 1}/{NUM_CLIENTS}")
+
+            # Initialize the local model
+            local_model = CNNMnist().to(device)
+            #  Broadcasting Global Model
+            local_model.load_state_dict(global_weights)
+
+            # Create DataLoader for the client's data subset
+            client_indices = dict_users[client_id]
+            client_subset = Subset(train_dataset, client_indices)
+            client_loader = DataLoader(client_subset, batch_size=64, shuffle=True)
+
+            # Train the local model
+            optimizer = torch.optim.Adam(local_model.parameters(), 
+                                         lr=0.01, 
+                                         weight_decay=1e-4)
+            criterion = nn.CrossEntropyLoss()
+            local_model.train()
+            client_epoch_loss = []
+
+            for epoch in range(EPOCHS_PER_CLIENT):
+                for images, labels in client_loader:
+                    images, labels = images.to(device), labels.to(device)
+                    optimizer.zero_grad()
+                    outputs = local_model(images)
+                    loss = criterion(outputs, labels)
+                    loss.backward()
+                    optimizer.step()
+                    client_epoch_loss.append(loss.item())
+                    
+            # collect local weights from the clients
+            local_weights.append(local_model.state_dict())
+            avg_local_loss = sum(client_epoch_loss) / len(client_epoch_loss)
+            local_losses.append(avg_local_loss)
+
+            logging.info(f"Client {client_id + 1} - Average Loss: {avg_local_loss:.6f}")
+
+        # Aggregate the local weights to update the global model
+        global_weights = utils.aggregate_weights(local_weights)
+        global_model.load_state_dict(global_weights)
+
+        # Calculate average loss for the round
+        avg_loss = sum(local_losses) / len(local_losses)
+        logging.info(f"Round {round_num + 1} - Average Loss: {avg_loss:.6f}")
+
+    logging.info("Federated training completed.")
+
+    # Plot the training loss
+    plt.figure()
+    plt.plot(range(NUM_ROUNDS), [sum(local_losses) / len(local_losses) for _ in range(NUM_ROUNDS)], marker='o')
+    plt.xlabel('Rounds')
+    plt.ylabel('Average Loss')
+    plt.title('Training Loss over Rounds')
+    plt.grid(True)
+    plt.savefig('./save/nn_mnist/CNNMnist/federated_{}.png'.format(datetime.now().strftime('%Y-%m-%d_%H-%M-%S')))
+    logging.info("Training loss plot saved.")
+
+    # # Evaluate the global model
+    # logging.info("Evaluating the global model on the test dataset...")
+    # test_loader = DataLoader(test_dataset, batch_size=64, shuffle=False)
+    # test_accuracy, test_loss = evaluate_model(global_model, test_loader, device)
+    # logging.info(f"Test on {len(test_dataset)} samples")
+    # logging.info(f"Test Accuracy: {100 * test_accuracy:.2f}%")
+    # logging.info(f"Test Loss: {test_loss:.6f}")
+
+    # logging.info("Evaluation completed.")
+    # logging.info(f"Total execution time: {time.time() - start_time:.2f} seconds")
+
+if __name__ == '__main__':
+    main(NUM_CLIENTS=10)
