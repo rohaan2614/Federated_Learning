@@ -163,9 +163,6 @@ def main(RANDOM_SEED: int = 42,
     # logging.info(f"Test Accuracy: {100 * test_accuracy:.2f}%")
     # logging.info(f"Test Loss: {test_loss:.6f}")
 
-    # logging.info("Evaluation completed.")
-    # logging.info(f"Total execution time: {time.time() - start_time:.2f} seconds")
-
 if __name__ == '__main__':
     main(NUM_CLIENTS=10,
          CLIENT_FRACTION=0.6)
