@@ -121,3 +121,17 @@ def evaluate_model(model, data_loader, device):
     logging.info(f'Average Test Loss: {average_loss:.6f}')
 
     return accuracy, average_loss
+
+def aggregate_weights(local_weights):
+    """
+    Aggregate local model weights into global weights by averaging.
+
+    :param local_weights: List of state dictionaries from each client.
+    :return: Aggregated state dictionary.
+    """
+    global_weights = local_weights[0].copy()
+    for key in global_weights.keys():
+        for local_weight in local_weights[1:]:
+            global_weights[key] += local_weight[key]
+        global_weights[key] = torch.div(global_weights[key], len(local_weights))
+    return global_weights

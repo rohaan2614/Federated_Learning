@@ -16,7 +16,7 @@ class CNNMnist(nn.Module):
         self.fc1 = nn.Linear(320, 50)
         self.fc2 = nn.Linear(50, num_classes)
         
-        logging.info(f"Initialized CNNMnist with conv1: {self.conv1}, conv2: {self.conv2}, fc1: {self.fc1}, fc2: {self.fc2}")
+        logging.debug(f"Initialized CNNMnist with conv1: {self.conv1}, conv2: {self.conv2}, fc1: {self.fc1}, fc2: {self.fc2}")
 
     def forward(self, x):
         x = F.relu(F.max_pool2d(self.conv1(x), 2))
