@@ -41,7 +41,8 @@ def sample_noniid(num_clients: int,
                   num_shards: int,
                   num_imgs: int,
                   shards_per_client: int,
-                  dataset: Dataset) -> dict:
+                  dataset: Dataset,
+                  random_seed: int) -> dict:
     """
     Sample non-I.I.D client data from the MNIST dataset using PyTorch's torchvision.datasets.
 
@@ -59,6 +60,9 @@ def sample_noniid(num_clients: int,
     idx_shard = [i for i in range(num_shards)]
     dict_users = {i: np.array([], dtype=np.int64) for i in range(num_clients)}
     total_imgs = num_shards * num_imgs
+    
+    # random seed
+    rng = np.random.default_rng(seed=random_seed)
 
     # Ensure that the dataset has enough data
     if total_imgs > len(dataset):
@@ -78,10 +82,13 @@ def sample_noniid(num_clients: int,
     idxs_labels = np.vstack((idxs, labels[:total_imgs]))
     idxs_labels = idxs_labels[:, idxs_labels[1, :].argsort()]
     idxs = idxs_labels[0, :]
+    
+    # Shuffle indices
+    np.random.shuffle(idxs)
 
     # Assign shards to each client
     for i in range(num_clients):
-        rand_set = set(np.random.choice(idx_shard, shards_per_client, replace=False))
+        rand_set = set(rng.choice(idx_shard, shards_per_client, replace=False))
         idx_shard = list(set(idx_shard) - rand_set)
         for rand in rand_set:
             dict_users[i] = np.concatenate(
