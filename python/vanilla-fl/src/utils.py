@@ -36,7 +36,7 @@ def save_dict_to_json(dictionary, json_path):
         logging.info(f"Dictionary successfully saved to {json_path}.")
     except IOError as e:
         logging.error(f"Failed to save dictionary to {json_path}: {e}")
-
+        
 def sample_noniid(num_clients: int,
                   num_shards: int,
                   num_imgs: int,
@@ -122,16 +122,23 @@ def evaluate_model(model, data_loader, device):
 
     return accuracy, average_loss
 
-def aggregate_weights(local_weights):
+def aggregate_weights(existing_global_weights : dict, 
+                      local_weights : dict) -> dict:
     """
-    Aggregate local model weights into global weights by averaging.
+    Aggregate local model weights into global weights by averaging, 
+    starting with the existing global weights.
 
+    :param existing_global_weights: State dictionary of the existing global model weights.
     :param local_weights: List of state dictionaries from each client.
-    :return: Aggregated state dictionary.
+    :return: Updated global state dictionary.
     """
-    global_weights = local_weights[0].copy()
-    for key in global_weights.keys():
-        for local_weight in local_weights[1:]:
-            global_weights[key] += local_weight[key]
-        global_weights[key] = torch.div(global_weights[key], len(local_weights))
-    return global_weights
+    # Initialize global weights as a copy of the existing global weights
+    updated_global_weights = {key: existing_global_weights[key].clone() for key in existing_global_weights.keys()}
+
+    # Aggregate local weights into global weights
+    for key in updated_global_weights.keys():
+        for local_weight in local_weights:
+            updated_global_weights[key] += local_weight[key]
+        updated_global_weights[key] = torch.div(updated_global_weights[key], len(local_weights))
+
+    return updated_global_weights
