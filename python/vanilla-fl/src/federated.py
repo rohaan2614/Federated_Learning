@@ -1,5 +1,6 @@
 import logging
-from tqdm import tqdm
+import json
+import copy
 import matplotlib.pyplot as plt
 import torch
 from torch import nn
@@ -21,6 +22,7 @@ def main(RANDOM_SEED: int = 42,
          EPOCHS_PER_CLIENT: int = 10,
          CLIENT_FRACTION: float = 0.5,
          LEARNING_RATE : float = 0.01):
+    
     
     # to calculate execution time
     start_time = time.time()
@@ -125,6 +127,19 @@ def main(RANDOM_SEED: int = 42,
 
             logging.info(f"Client {client_id + 1} - Average Loss: {avg_local_loss:.6f}")
     
+        
+        # Create a deep copy of local_weights
+        local_weights_copy = copy.deepcopy(local_weights)
+
+        # Convert torch.Tensor to list in local_weights_copy
+        for client_weights in local_weights_copy:
+            for key, value in client_weights.items():
+                client_weights[key] = value.tolist()
+
+        # Save local_weights_copy to a JSON file without indentation
+        with open('local_weights.json', 'w') as f:
+            json.dump(local_weights_copy, f)
+
         # Aggregate the local weights to update the global model
         global_weights = utils.aggregate_weights(existing_global_weights=global_weights,
                                                  local_weights=local_weights)
@@ -162,5 +177,5 @@ def main(RANDOM_SEED: int = 42,
     logging.info(f"Test Loss: {test_loss:.6f}")
 
 if __name__ == '__main__':
-    main(NUM_CLIENTS=100,
-         CLIENT_FRACTION=0.1)
+    main(NUM_CLIENTS=15,
+         CLIENT_FRACTION=0.6)
