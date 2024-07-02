@@ -11,6 +11,7 @@ import time
 import random
 from models import CNNMnist
 import utils
+import json
 
 def main(RANDOM_SEED: int = 42,
          NUM_CLIENTS: int = 3,
@@ -43,24 +44,24 @@ def main(RANDOM_SEED: int = 42,
     logging.info("Loading datasets...")
     transform = transforms.Compose([transforms.ToTensor()])
     train_dataset = MNIST(root='./data', 
-                          train=True, 
-                          download=True, 
-                          transform=transform)
+                        train=True, 
+                        download=True, 
+                        transform=transform)
     test_dataset = MNIST(root='./data', 
-                         train=False, 
-                         download=True, 
-                         transform=transform)
+                        train=False, 
+                        download=True, 
+                        transform=transform)
     logging.info("Datasets loaded successfully.")
-    
+
     # Split the training dataset into client datasets
     dict_users = utils.sample_noniid(num_clients=NUM_CLIENTS, 
-                                     num_imgs=NUM_IMGS, 
-                                     num_shards=NUM_SHARDS, 
-                                     shards_per_client=SHARDS_PER_CLIENT, 
-                                     dataset=train_dataset,
-                                     random_seed = RANDOM_SEED)
+                                    num_imgs=NUM_IMGS, 
+                                    num_shards=NUM_SHARDS, 
+                                    shards_per_client=SHARDS_PER_CLIENT, 
+                                    dataset=train_dataset,
+                                    random_seed=RANDOM_SEED)
     logging.info("dict_users generated successfully.")
-    
+
     # Check if CUDA is available, if not use CPU
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     logging.info(f'Using device: {device}')
@@ -68,19 +69,21 @@ def main(RANDOM_SEED: int = 42,
     # Initialize the global model
     global_model = CNNMnist().to(device)
     logging.info("Global model initialized.")
-
-    # Copy global weights
-    global_weights = global_model.state_dict()
+    
     # Training loop for federated learning
     logging.info("Starting federated training...")
-    
+
     # local losses per round
     round_avg_losses = []
-    
+
     for round_num in range(NUM_ROUNDS):
         logging.info(f"--- Round {round_num + 1}/{NUM_ROUNDS} ---")
+        
+        # Copy global weights
+        global_weights = global_model.state_dict()
 
         local_weights = []
+        local_weights_copy = []
         local_losses = []
 
         # Determine the number of clients to sample
@@ -92,7 +95,7 @@ def main(RANDOM_SEED: int = 42,
         for client_id in sampled_clients:
             local_model = CNNMnist().to(device)
             
-            #  Broadcasting Global Model
+            # Broadcasting Global Model
             local_model.load_state_dict(global_weights)
 
             # Create DataLoader for the client's data subset
@@ -102,8 +105,8 @@ def main(RANDOM_SEED: int = 42,
 
             # Train the local model
             optimizer = torch.optim.Adam(local_model.parameters(), 
-                                         lr=LEARNING_RATE, 
-                                         weight_decay=1e-4)
+                                        lr=LEARNING_RATE, 
+                                        weight_decay=1e-4)
             criterion = nn.CrossEntropyLoss()
             local_model.train()
             client_epoch_loss = []
@@ -118,25 +121,39 @@ def main(RANDOM_SEED: int = 42,
                     optimizer.step()
                     client_epoch_loss.append(loss.item())
                     
-            # collect local weights from the clients
-            local_weights.append(local_model.state_dict())
+            
             avg_local_loss = sum(client_epoch_loss) / len(client_epoch_loss)
             local_losses.append(avg_local_loss)
+            
+            # collect local weights from the clients
+            local_weights.append(local_model.weights_to_vector())
+            local_weights_copy.append(local_model.weights_to_vector().tolist())
+            
+            # logging.info('Local updates collected as a vector.')
 
             logging.info(f"Client {client_id + 1} - Average Loss: {avg_local_loss:.6f}")
-    
-        # Aggregate the local weights to update the global model
-        global_weights = utils.aggregate_weights(existing_global_weights=global_weights,
-                                                 local_weights=local_weights)
-        global_model.load_state_dict(global_weights)
-        
+            
         # Calculate average loss for the round
         avg_loss = sum(local_losses) / len(local_losses)
         round_avg_losses.append(avg_loss)
         logging.info(f"Round {round_num + 1} - Average Loss: {avg_loss:.6f}")
+        
+        # Aggregate the local weights to update the global model
+        global_weights = utils.aggregate_weights(existing_global_weights=global_model.state_dict(), 
+                                       local_weights=local_weights)
+        # logging.info('local updates aggregated by global model.')
+        global_model.load_state_dict(global_weights)
+        logging.info('Global weights updated.')
         print("")
+        
+    #  # Write local updates to a JSON file
+    # with open(f'local_updates.json', 'w') as f:
+    #     json.dump(local_weights_copy, f)
+    # # logging.info(f"Local updates for round {round_num + 1} written to JSON file.")
 
     logging.info("Federated training completed.")
+    
+    
     
     # Calculate total execution time
     end_time = time.time()

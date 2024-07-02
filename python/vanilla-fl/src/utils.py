@@ -129,23 +129,33 @@ def evaluate_model(model, data_loader, device):
 
     return accuracy, average_loss
 
-def aggregate_weights(existing_global_weights : dict, 
-                      local_weights : dict) -> dict:
+def aggregate_weights(existing_global_weights, local_weights):
     """
-    Aggregate local model weights into global weights by averaging, 
-    starting with the existing global weights.
+    Aggregate local model weights into global weights by averaging.
 
-    :param existing_global_weights: State dictionary of the existing global model weights.
-    :param local_weights: List of state dictionaries from each client.
-    :return: Updated global state dictionary.
+    :param existing_global_weights: Dict of global model parameters.
+    :param local_weights: List of vectors representing local model parameters from each client.
+    :return: Dict of updated global model parameters.
     """
-    # Initialize global weights as a copy of the existing global weights
-    updated_global_weights = {key: existing_global_weights[key].clone() for key in existing_global_weights.keys()}
+    # Convert existing global weights to a single vector
+    global_vector = torch.cat([param.view(-1) for param in existing_global_weights.values()])
 
-    # Aggregate local weights into global weights
-    for key in updated_global_weights.keys():
-        for local_weight in local_weights:
-            updated_global_weights[key] += local_weight[key]
-        updated_global_weights[key] = torch.div(updated_global_weights[key], len(local_weights))
+    # Initialize the updated global vector with a copy of the global vector
+    updated_global_vector = global_vector.clone()
+
+    # Aggregate local vectors into the updated global vector
+    for local_vector in local_weights:
+        updated_global_vector += local_vector
+
+    # Average the parameters
+    updated_global_vector /= (len(local_weights) + 1)
+
+    # Convert the updated global vector back to the original parameter shapes
+    pointer = 0
+    updated_global_weights = {}
+    for name, param in existing_global_weights.items():
+        numel = param.numel()  # number of elements in this parameter
+        updated_global_weights[name] = updated_global_vector[pointer:pointer + numel].view(param.shape)
+        pointer += numel
 
     return updated_global_weights

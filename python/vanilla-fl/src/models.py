@@ -1,6 +1,7 @@
 from torch import nn
 import torch.nn.functional as F
 import logging
+import torch
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -26,3 +27,20 @@ class CNNMnist(nn.Module):
         x = F.dropout(x, training=self.training)
         x = self.fc2(x)
         return F.log_softmax(x, dim=1)
+    
+    def weights_to_vector(self):
+        """Returns a single vector with all model weights."""
+        return torch.cat([param.view(-1) for param in self.parameters()])
+
+    def vector_to_weights(self, vector):
+        """Load a single vector back into model's original weight shapes."""
+        pointer = 0
+        for param in self.parameters():
+            numel = param.numel()  # number of elements in this parameter
+            param_shape = param.shape  # shape of the parameter
+            param.data = vector[pointer:pointer + numel].view(param_shape)
+            pointer += numel
+            
+    def zero_out_weights(self):
+        for param in self.parameters():
+            param.data.fill_(0)
